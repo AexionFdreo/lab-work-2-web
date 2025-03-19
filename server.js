@@ -12,6 +12,9 @@ const { Sequelize } = require("sequelize");
 const { sql } = require('@sequelize/core');
 const MongoDB = require("./mongo");
 const Table = require("./mongoTable");
+const authController = require("./authController");
+const authMiddleware = require("./authMiddleware");
+const adminMiddleware = require("./adminMiddleware");
 
 const PORT = 3000;
 app.listen(PORT, () => {
@@ -22,7 +25,7 @@ app.use(bodyParser.json());
 
 const { ObjectId } = require('mongoose').Types;
 
-app.put('/users/:id', async (req, res) => {
+/*app.put('/users/:id', async (req, res) => {
     let { id } = req.params;
     const { name } = req.body;
     try {
@@ -46,9 +49,12 @@ app.put('/users/:id', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
-});
+});*/
 
-app.post('/mtables/', async(req, res) => {
+app.post('/register/', async (req, res) => {authController.register(req, res)})
+app.post('/login/', async (req, res) => {authController.login(req, res)})
+
+app.post('/mtables/', authMiddleware, async(req, res) => {
     const { number, capacity } = req.body;
     try{
         await Table.create({number: number, capacity: capacity})
@@ -60,7 +66,7 @@ app.post('/mtables/', async(req, res) => {
     }
 })
 
-app.get('/mtables/', async(req, res) => {
+app.get('/mtables/', authMiddleware, async(req, res) => {
     const { number, capacity } = req.body;
     try{
         const tables = await Table.find(); 
@@ -72,7 +78,7 @@ app.get('/mtables/', async(req, res) => {
     }
 })
 
-app.get('/mtables/:id', async(req, res) => {
+app.get('/mtables/:id', authMiddleware, async(req, res) => {
     let { id } = req.params;
     const { number, capacity } = req.body;
     try{
@@ -85,7 +91,7 @@ app.get('/mtables/:id', async(req, res) => {
     }
 })
 
-app.get('/tables/', async(req, res) => {
+app.get('/tables/', authMiddleware, async(req, res) => {
     try{
         const tables = await TableModel.mysql.findAll();
         res.json(tables);
@@ -96,7 +102,7 @@ app.get('/tables/', async(req, res) => {
     }
 })
 
-app.post('/tables/', async(req, res) => {
+app.post('/tables/', authMiddleware, async(req, res) => {
     try {
         const {number, capacity} = req.body;
         TableModel.mysql.create({number: number, capacity: capacity});
@@ -108,7 +114,7 @@ app.post('/tables/', async(req, res) => {
     }
 })
 
-app.get('/tables/free', async(req, res) => {
+app.get('/tables/free', authMiddleware, async(req, res) => {
     try{
         const [tables] = await mysqlDB.query('SELECT * FROM tables where id not in (select table_id from orders where state = 0)');
         console.log(tables);
@@ -120,7 +126,7 @@ app.get('/tables/free', async(req, res) => {
     }
 })
 
-app.put('/tables/:id', async(req, res) => {
+app.put('/tables/:id', authMiddleware, async(req, res) => {
     let { id } = req.params;
     try {
         const {number, capacity} = req.body;
@@ -133,7 +139,7 @@ app.put('/tables/:id', async(req, res) => {
     }
 })
 
-app.get('/tables/:id', async(req, res) => {
+app.get('/tables/:id', authMiddleware, async(req, res) => {
     let { id } = req.params;
     try{
         const tables = await TableModel.mysql.findOne({where: {id: id}});
@@ -145,7 +151,7 @@ app.get('/tables/:id', async(req, res) => {
     }
 })
 
-app.post('/menu/', async(req, res) => {
+app.post('/menu/', authMiddleware, async(req, res) => {
     try {
         const {meal, price, category} = req.body;
         MenuModel.mysql.create({meal: meal, price: price, category: category});
@@ -157,7 +163,7 @@ app.post('/menu/', async(req, res) => {
     }
 })
 
-app.post('/orders/', async(req, res) => {
+app.post('/orders/', authMiddleware, async(req, res) => {
     try {
         const {table_id, menu_id, amount, state} = req.body;
         OrderModel.mysql.create({table_id: table_id, menu_id: menu_id, amount: amount, state: state});
@@ -169,3 +175,14 @@ app.post('/orders/', async(req, res) => {
     }
 })
 
+app.delete('/tables/:id', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        let { id } = req.params;
+        TableModel.mysql.destroy({where: {id: id}});
+        res.json({message: 'deleted'});
+    }
+    catch (error) {
+        console.log(error);
+        res.status(500).json({ error: error.message });
+    }
+});
